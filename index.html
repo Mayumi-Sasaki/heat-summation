@@ -12,7 +12,8 @@
     .header h1 { font-size: 17px; font-weight: 500; }
     .header p { font-size: 12px; opacity: 0.75; margin-top: 2px; }
     .container { max-width: 680px; margin: 0 auto; padding: 1rem; }
-    .setting-bar { background: #fff; border-radius: 10px; border: 0.5px solid #e0e0d8; padding: 12px 14px; margin-bottom: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+    .card-box { background: #fff; border-radius: 10px; border: 0.5px solid #e0e0d8; padding: 12px 14px; margin-bottom: 1rem; }
+    .setting-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: #666; }
     .setting-bar input[type=date], .setting-bar input[type=number] { border: 0.5px solid #ccc; border-radius: 7px; padding: 5px 8px; font-size: 13px; background: #fafafa; color: #1a1a1a; }
     .setting-bar input[type=number] { width: 72px; }
     .fetch-btn { background: #3B6D11; color: #EAF3DE; border: none; border-radius: 7px; padding: 7px 16px; font-size: 13px; font-weight: 500; cursor: pointer; }
@@ -20,7 +21,6 @@
     .fetch-btn:disabled { background: #ccc; color: #888; cursor: not-allowed; }
     .status-msg { font-size: 13px; color: #666; margin-bottom: 0.75rem; min-height: 18px; }
     .status-msg.err { color: #c0392b; }
-    .progress-wrap { background: #fff; border-radius: 10px; border: 0.5px solid #e0e0d8; padding: 12px 14px; margin-bottom: 1rem; }
     .progress-header { display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 8px; }
     .bar-bg { background: #eee; border-radius: 99px; height: 16px; overflow: hidden; }
     .bar-fill { height: 16px; border-radius: 99px; background: #639922; transition: width 0.4s ease; }
@@ -43,15 +43,14 @@
     @media (prefers-color-scheme: dark) {
       body { background: #1a1a18; color: #e8e8e0; }
       .header { background: #27500A; }
-      .setting-bar, .progress-wrap, .card, .chart-card, .table-card, .empty { background: #2a2a28; border-color: #3a3a38; }
+      .card-box, .card, .chart-card, .table-card, .empty { background: #2a2a28; border-color: #3a3a38; }
       .setting-bar input[type=date], .setting-bar input[type=number] { background: #333; border-color: #555; color: #e8e8e0; }
       .bar-bg { background: #3a3a38; }
       th { color: #aaa; border-color: #3a3a38; }
       td { border-color: #333; color: #e8e8e0; }
       .card-label, .card-unit { color: #aaa; }
       .card-value { color: #e8e8e0; }
-      .progress-header { color: #aaa; }
-      .status-msg { color: #aaa; }
+      .progress-header, .status-msg { color: #aaa; }
     }
   </style>
 </head>
@@ -59,24 +58,27 @@
 
 <div class="header">
   <h1>積算温度トラッカー</h1>
-  <p>村田町 × 大河原アメダス（気象庁）</p>
+  <p>宮城県村田町 × Open-Meteo気象データ（過去90日分対応）</p>
 </div>
 
 <div class="container">
-  <div class="setting-bar">
-    <span>播種日</span>
-    <input type="date" id="sow-date" />
-    <span>目標</span>
-    <input type="number" id="target-input" value="1800" step="50" min="100" />
-    <span>℃日　基準</span>
-    <input type="number" id="base-input" value="10" step="0.5" min="0" max="25" style="width:58px;" />
-    <span>℃</span>
-    <button class="fetch-btn" id="fetch-btn" onclick="fetchAll()">気温を自動取得</button>
+
+  <div class="card-box">
+    <div class="setting-bar">
+      <span>播種日</span>
+      <input type="date" id="sow-date" />
+      <span>目標</span>
+      <input type="number" id="target-input" value="1800" step="50" min="100" />
+      <span>℃日　基準</span>
+      <input type="number" id="base-input" value="10" step="0.5" min="0" max="25" style="width:58px;" />
+      <span>℃</span>
+      <button class="fetch-btn" id="fetch-btn" onclick="fetchAll()">気温を自動取得</button>
+    </div>
   </div>
 
   <div class="status-msg" id="status-msg">播種日を入力して「気温を自動取得」を押してください。</div>
 
-  <div class="progress-wrap">
+  <div class="card-box">
     <div class="progress-header">
       <span id="prog-label">進捗 0 / 1800 ℃日</span>
       <span id="prog-pct">0%</span>
@@ -113,14 +115,15 @@
   </div>
 
   <p class="note">
-    ※ 気象庁アメダス「大河原」観測所（宮城県柴田郡大河原町）のデータを使用。村田町から約6km。<br>
-    ※ APIの仕様上、取得できるのは直近10日分程度です。週1回程度ボタンを押すとデータが蓄積されます。<br>
+    ※ Open-Meteo（無料気象API）の村田町付近（38.13°N, 140.70°E）のデータを使用。<br>
+    ※ 播種日から最大90日分を一括自動取得できます。<br>
     ※ 当日のデータは翌日以降に確定します。
   </p>
 </div>
 
 <script>
-const STATION = '34290';
+const LAT = 38.13;
+const LON = 140.70;
 let records = [];
 let chart = null;
 
@@ -146,81 +149,57 @@ function daysSinceSow(dateStr) {
   return Math.round((d - sow) / 86400000) + 1;
 }
 
-function dateRange(startStr, endDate) {
-  const dates = [];
-  const cur = new Date(startStr);
-  while (cur <= endDate) {
-    dates.push(fmt(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return dates;
-}
-
-async function fetchDayData(dateStr) {
-  const d = dateStr.replace(/-/g, '');
-  const hours = ['00','03','06','09','12','15','18','21'];
-  const temps = [];
-  for (const h of hours) {
-    try {
-      const url = `https://www.jma.go.jp/bosai/amedas/data/point/${STATION}/${d}_${h}.json`;
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const data = await res.json();
-      for (const key of Object.keys(data)) {
-        const entry = data[key];
-        if (entry.temp && Array.isArray(entry.temp) && entry.temp[1] === 0 && entry.temp[0] !== null) {
-          temps.push(entry.temp[0]);
-        }
-      }
-    } catch(e) {}
-  }
-  if (temps.length === 0) return null;
-  return { tmax: Math.max(...temps), tmin: Math.min(...temps) };
-}
-
 async function fetchAll() {
   const sow = sowDate();
   if (!sow) { setStatus('播種日を設定してください。', true); return; }
 
-  const btn = document.getElementById('fetch-btn');
-  btn.disabled = true;
-  btn.textContent = '取得中...';
-  records = [];
-
+  const sowD = new Date(sow);
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const allDates = dateRange(sow, yesterday);
 
-  if (allDates.length === 0) {
-    setStatus('播種日が今日以降になっています。', true);
-    btn.disabled = false; btn.textContent = '気温を自動取得';
+  if (sowD > yesterday) {
+    setStatus('播種日が今日以降になっています。昨日以前の日付を設定してください。', true);
     return;
   }
 
-  const fetchDates = allDates.slice(-10);
-  const skipped = allDates.length - fetchDates.length;
+  const minDate = new Date(today);
+  minDate.setDate(minDate.getDate() - 90);
+  const startDate = sowD < minDate ? minDate : sowD;
+  const startStr = fmt(startDate);
+  const endStr = fmt(yesterday);
 
-  if (skipped > 0) {
-    setStatus(`播種日から${allDates.length}日分ありますが、直近10日分のみ自動取得します（${skipped}日分は対象外）。`);
-  } else {
-    setStatus(`${fetchDates.length}日分を大河原アメダスから取得中...`);
-  }
+  const btn = document.getElementById('fetch-btn');
+  btn.disabled = true;
+  btn.textContent = '取得中...';
+  setStatus('Open-Meteoから村田町の気温データを取得中...');
 
-  let count = 0;
-  for (const d of fetchDates) {
-    count++;
-    setStatus(`取得中: ${d}（${count}/${fetchDates.length}）`);
-    const result = await fetchDayData(d);
-    if (result) records.push({ date: d, tmax: result.tmax, tmin: result.tmin });
-    await new Promise(r => setTimeout(r, 250));
-  }
+  try {
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${LAT}&longitude=${LON}&start_date=${startStr}&end_date=${endStr}&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('APIエラー: ' + res.status);
+    const data = await res.json();
 
-  records.sort((a, b) => a.date.localeCompare(b.date));
+    if (data.error) throw new Error(data.reason || 'データエラー');
 
-  if (records.length === 0) {
-    setStatus('データを取得できませんでした。しばらくしてから再度お試しください。', true);
-  } else {
-    setStatus(`完了：${records.length}日分を取得しました（大河原アメダス）。`);
+    records = [];
+    const dates = data.daily.time;
+    const tmaxArr = data.daily.temperature_2m_max;
+    const tminArr = data.daily.temperature_2m_min;
+
+    for (let i = 0; i < dates.length; i++) {
+      if (tmaxArr[i] !== null && tminArr[i] !== null) {
+        records.push({ date: dates[i], tmax: tmaxArr[i], tmin: tminArr[i] });
+      }
+    }
+
+    if (records.length === 0) {
+      setStatus('データを取得できませんでした。', true);
+    } else {
+      const skipped = sowD < minDate ? `（90日以上前のため${startStr}から取得）` : '';
+      setStatus(`完了：${records.length}日分を取得しました。${skipped}`);
+    }
+  } catch(e) {
+    setStatus('取得に失敗しました: ' + e.message, true);
   }
 
   btn.disabled = false;
@@ -298,7 +277,7 @@ function render() {
             backgroundColor: 'rgba(99,153,34,0.10)',
             fill: true,
             tension: 0.3,
-            pointRadius: 4,
+            pointRadius: 3,
             pointBackgroundColor: '#639922'
           },
           {
